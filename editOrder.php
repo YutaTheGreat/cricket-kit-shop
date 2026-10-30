@@ -1,5 +1,8 @@
 <?php
 require_once __DIR__ . '/core/dbConfig.php';
+require_once __DIR__ . '/core/auth.php';
+requireLogin();
+if (!isOwner()) { header('Location: index.php?access=denied'); exit(); }
 
 $message = '';
 

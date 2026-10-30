@@ -1,5 +1,8 @@
 <?php
 require_once __DIR__ . '/core/dbConfig.php';
+require_once __DIR__ . '/core/auth.php';
+requireLogin();
+if (!isOwner()) { header('Location: index.php?access=denied'); exit(); }
 
 $message = '';
 
@@ -13,7 +16,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $sql = 'UPDATE cricket_kits
                 SET item_brand = :brand,
                     item_type = :type,
-                    price = :price
+                    price = :price,
+                    added_by = :user_id,
+                    last_updated = CURRENT_TIMESTAMP
                 WHERE item_id = :id';
 
         $stmt = $pdo->prepare($sql);
@@ -21,6 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ':brand' => $item_brand,
             ':type' => $item_type,
             ':price' => (float) $price,
+            ':user_id' => currentUserId(),
             ':id' => $item_id,
         ]);
 

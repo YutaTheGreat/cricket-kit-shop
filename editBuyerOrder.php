@@ -1,5 +1,7 @@
 <?php
 require_once __DIR__ . '/core/dbConfig.php';
+require_once __DIR__ . '/core/auth.php';
+requireLogin();
 
 $message = '';
 
@@ -19,7 +21,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     email = :email,
                     phone = :phone,
                     shipping_address = :shipping_address,
-                    quantity = :quantity
+                    quantity = :quantity,
+                    added_by = :user_id,
+                    last_updated = CURRENT_TIMESTAMP
                 WHERE buyer_id = :buyer_id';
 
         $stmt = $pdo->prepare($sql);
@@ -30,6 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ':phone' => $phone,
             ':shipping_address' => $shipping_address,
             ':quantity' => $quantity,
+            ':user_id' => currentUserId(),
             ':buyer_id' => $buyer_id,
         ]);
 

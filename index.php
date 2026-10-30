@@ -1,20 +1,35 @@
 <?php
 require_once __DIR__ . '/core/dbConfig.php';
+require_once __DIR__ . '/core/auth.php';
+requireLogin();
+$ownerAccess = isOwner();
 
 $stmt = $pdo->query(
-    'SELECT item_id, item_brand, item_type, price, date_added
-     FROM cricket_kits
-     ORDER BY item_id DESC'
+    'SELECT k.item_id, k.item_brand, k.item_type, k.price, k.date_added, k.last_updated,
+            CONCAT_WS(" ", u.first_name, u.last_name) AS added_by_name
+     FROM cricket_kits k
+     LEFT JOIN users u ON u.user_id = k.added_by
+     ORDER BY k.item_id DESC'
 );
 $kits = $stmt->fetchAll();
 
-$buyers = $pdo->query(
-    'SELECT b.buyer_id, b.buyer_name, b.email, b.phone, b.shipping_address, b.quantity, b.order_date,
-            k.item_brand, k.item_type, k.price
+$buyerSql = 'SELECT b.buyer_id, b.buyer_name, b.email, b.phone, b.shipping_address, b.quantity, b.order_date, b.last_updated,
+            k.item_brand, k.item_type, k.price,
+            CONCAT_WS(" ", u.first_name, u.last_name) AS added_by_name
      FROM buyers b
      JOIN cricket_kits k ON k.item_id = b.item_id
-     ORDER BY b.buyer_id DESC'
-)->fetchAll();
+     LEFT JOIN users u ON u.user_id = b.added_by';
+if (!isOwner()) {
+    $buyerSql .= ' WHERE b.added_by = :user_id';
+}
+$buyerSql .= ' ORDER BY b.buyer_id DESC';
+$buyerStmt = $pdo->prepare($buyerSql);
+if (!isOwner()) {
+    $buyerStmt->execute([':user_id' => currentUserId()]);
+} else {
+    $buyerStmt->execute();
+}
+$buyers = $buyerStmt->fetchAll();
 ?>
 
 <!DOCTYPE html>
@@ -95,12 +110,30 @@ $buyers = $pdo->query(
             color: #056b3a;
             font-weight: bold;
         }
+        body { background: linear-gradient(135deg, #eef4ff, #f7fafc); }
+        body > h1, body > h2, body > table, body > form, body > .customer-note, body > div { max-width: 1200px; margin-left: auto; margin-right: auto; }
+        body > div:first-of-type { display: flex; padding: 18px 22px; border-radius: 12px; background: #fff; box-shadow: 0 8px 24px rgba(22, 50, 92, .09); }
+        h1 { color: #173a63; }
+        h2 { color: #245b91; }
+        table { border-radius: 10px; overflow: hidden; }
+        th { background: #dbe9f9; color: #173a63; }
+        tr:nth-child(even) td { background: #f8fbff; }
+        form { border-top: 4px solid #145da0; }
+        input, select, textarea { border: 1px solid #ccd6e0; border-radius: 5px; }
+        button { background: #145da0; transition: transform .15s, background .15s; }
+        button:hover { background: #0d477d; transform: translateY(-1px); }
+        .actions a, body a { display: inline-block; }
+        .customer-note { max-width: 1160px; padding: 14px 18px; background: #e8f4ff; border-left: 4px solid #145da0; border-radius: 6px; }
+        .order-details { max-width: 1200px; margin: 28px auto 0; padding: 14px; background: #fff; border-radius: 10px; box-shadow: 0 8px 24px rgba(22, 50, 92, .09); }
+        .order-details summary { color: #145da0; font-weight: bold; cursor: pointer; padding: 6px; }
+        .order-details table { margin-top: 14px; }
     </style>
 </head>
 <body>
-    <h1>Cricket Kit Shop</h1>
+    <div style="display:flex;justify-content:space-between;align-items:center"><h1>Cricket Kit Shop</h1><div>Welcome, <strong><?= htmlspecialchars(currentUserName()) ?></strong> | <a href="logout.php">Logout</a></div></div>
 
-    <h2>Parent Table: Cricket Kits</h2>
+    <?php if ($ownerAccess): ?>
+    <h2>Cricket Kits</h2>
     <table>
         <thead>
             <tr>
@@ -109,13 +142,15 @@ $buyers = $pdo->query(
                 <th>Type</th>
                 <th>Price</th>
                 <th>Date Added</th>
-                <th>Action</th>
+                <th>Added By</th>
+                <th>Last Updated</th>
+                <?php if ($ownerAccess): ?><th>Action</th><?php endif; ?>
             </tr>
         </thead>
         <tbody>
             <?php if (empty($kits)): ?>
                 <tr>
-                    <td colspan="6">No kits found.</td>
+                    <td colspan="<?= $ownerAccess ? 8 : 7 ?>">No kits found.</td>
                 </tr>
             <?php else: ?>
                 <?php foreach ($kits as $kit): ?>
@@ -125,18 +160,24 @@ $buyers = $pdo->query(
                         <td><?= htmlspecialchars($kit['item_type']) ?></td>
                         <td>₱<?= number_format((float) $kit['price'], 2) ?></td>
                         <td><?= htmlspecialchars($kit['date_added']) ?></td>
+                        <td><?= htmlspecialchars($kit['added_by_name'] ?: 'Unknown') ?></td>
+                        <td><?= htmlspecialchars($kit['last_updated']) ?></td>
+                        <?php if ($ownerAccess): ?>
                         <td>
                             <div class="actions">
                                 <a href="editOrder.php?id=<?= (int) $kit['item_id'] ?>">Edit</a>
                                 <a href="core/handleForms.php?delete_item_id=<?= (int) $kit['item_id'] ?>" onclick="return confirm('Delete this kit and all related buyer orders?')">Delete</a>
                             </div>
                         </td>
+                        <?php endif; ?>
                     </tr>
                 <?php endforeach; ?>
             <?php endif; ?>
         </tbody>
     </table>
+    <?php endif; ?>
 
+    <?php if ($ownerAccess): ?>
     <h2>Add New Kit</h2>
     <form method="POST" action="core/handleForms.php">
         <input type="hidden" name="addKitBtn" value="1">
@@ -152,9 +193,13 @@ $buyers = $pdo->query(
 
         <button type="submit">Add Kit</button>
     </form>
+    <?php endif; ?>
 
-    <h2>Child Table: Buyer Orders</h2>
+    <?php if (!$ownerAccess): ?>
+    <h2>Place an Order</h2>
+    <?php endif; ?>
 
+    <?php if (!$ownerAccess): ?>
     <form method="POST" action="core/handleForms.php">
         <input type="hidden" name="placeOrderBtn" value="1">
 
@@ -183,7 +228,14 @@ $buyers = $pdo->query(
 
         <button type="submit">Place Order</button>
     </form>
+    <?php endif; ?>
 
+    <?php if ($ownerAccess): ?>
+    <h2>Buyer Orders</h2>
+    <?php else: ?>
+    <details class="order-details">
+        <summary>View my order details</summary>
+    <?php endif; ?>
     <table>
         <thead>
             <tr>
@@ -195,13 +247,15 @@ $buyers = $pdo->query(
                 <th>Address</th>
                 <th>Qty</th>
                 <th>Order Date</th>
+                <th>Added By</th>
+                <th>Last Updated</th>
                 <th>Action</th>
             </tr>
         </thead>
         <tbody>
             <?php if (empty($buyers)): ?>
                 <tr>
-                    <td colspan="9">No buyer orders yet.</td>
+                    <td colspan="11">No buyer orders yet.</td>
                 </tr>
             <?php else: ?>
                 <?php foreach ($buyers as $buyer): ?>
@@ -214,6 +268,8 @@ $buyers = $pdo->query(
                         <td><?= htmlspecialchars($buyer['shipping_address']) ?></td>
                         <td><?= htmlspecialchars($buyer['quantity']) ?></td>
                         <td><?= htmlspecialchars($buyer['order_date']) ?></td>
+                        <td><?= htmlspecialchars($buyer['added_by_name'] ?: 'Unknown') ?></td>
+                        <td><?= htmlspecialchars($buyer['last_updated']) ?></td>
                         <td>
                             <div class="actions">
                                 <a href="editBuyerOrder.php?id=<?= (int) $buyer['buyer_id'] ?>">Edit</a>
@@ -225,5 +281,6 @@ $buyers = $pdo->query(
             <?php endif; ?>
         </tbody>
     </table>
+    <?php if (!$ownerAccess): ?></details><?php endif; ?>
 </body>
 </html>
