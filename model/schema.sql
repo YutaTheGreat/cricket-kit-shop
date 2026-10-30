@@ -40,7 +40,3 @@ CREATE TABLE IF NOT EXISTS buyers (
     FOREIGN KEY (item_id) REFERENCES cricket_kits(item_id),
     FOREIGN KEY (added_by) REFERENCES users(user_id)
 );
-
--- Existing installations can add the audit columns with these commands if needed.
--- ALTER TABLE cricket_kits ADD COLUMN added_by INT NULL, ADD COLUMN last_updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;
--- ALTER TABLE buyers ADD COLUMN added_by INT NULL, ADD COLUMN last_updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;
