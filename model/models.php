@@ -18,16 +18,45 @@ function insertBuyer(PDO $pdo, string $buyer_name, int $item_id, string $email, 
     return $stmt->execute([':buyer_name' => $buyer_name, ':item_id' => $item_id, ':email' => $email, ':phone' => $phone, ':shipping_address' => $shipping_address, ':quantity' => $quantity, ':user_id' => $userId]);
 }
 
-function updateBuyer(PDO $pdo, int $buyer_id, string $buyer_name, int $item_id, string $email, string $phone, string $shipping_address, int $quantity, int $userId): bool
+function updateBuyer(PDO $pdo, int $buyer_id, string $buyer_name, int $item_id, string $email, string $phone, string $shipping_address, int $quantity, int $userId, bool $isOwner): bool
 {
-    $stmt = $pdo->prepare("UPDATE buyers SET buyer_name = :buyer_name, item_id = :item_id, email = :email, phone = :phone, shipping_address = :shipping_address, quantity = :quantity, added_by = :user_id, last_updated = CURRENT_TIMESTAMP WHERE buyer_id = :buyer_id");
-    return $stmt->execute([':buyer_id' => $buyer_id, ':buyer_name' => $buyer_name, ':item_id' => $item_id, ':email' => $email, ':phone' => $phone, ':shipping_address' => $shipping_address, ':quantity' => $quantity, ':user_id' => $userId]);
+    $stmt = $pdo->prepare("UPDATE buyers SET buyer_name = :buyer_name, item_id = :item_id, email = :email, phone = :phone, shipping_address = :shipping_address, quantity = :quantity, last_updated = CURRENT_TIMESTAMP WHERE buyer_id = :buyer_id AND (:is_owner = 1 OR added_by = :user_id)");
+    $params = [
+        ':buyer_id' => $buyer_id,
+        ':buyer_name' => $buyer_name,
+        ':item_id' => $item_id,
+        ':email' => $email,
+        ':phone' => $phone,
+        ':shipping_address' => $shipping_address,
+        ':quantity' => $quantity,
+        ':is_owner' => $isOwner ? 1 : 0,
+        ':user_id' => $userId,
+    ];
+    if (!$stmt->execute($params)) {
+        return false;
+    }
+    if ($stmt->rowCount() > 0) {
+        return true;
+    }
+
+    $check = $pdo->prepare('SELECT 1 FROM buyers WHERE buyer_id = :buyer_id AND (:is_owner = 1 OR added_by = :user_id)');
+    $check->execute([
+        ':buyer_id' => $buyer_id,
+        ':is_owner' => $isOwner ? 1 : 0,
+        ':user_id' => $userId,
+    ]);
+    return $check->fetchColumn() !== false;
 }
 
-function deleteBuyer(PDO $pdo, int $buyer_id): bool
+function deleteBuyer(PDO $pdo, int $buyer_id, int $userId, bool $isOwner): bool
 {
-    $stmt = $pdo->prepare("DELETE FROM buyers WHERE buyer_id = :buyer_id");
-    return $stmt->execute([':buyer_id' => $buyer_id]);
+    $stmt = $pdo->prepare("DELETE FROM buyers WHERE buyer_id = :buyer_id AND (:is_owner = 1 OR added_by = :user_id)");
+    $stmt->execute([
+        ':buyer_id' => $buyer_id,
+        ':is_owner' => $isOwner ? 1 : 0,
+        ':user_id' => $userId,
+    ]);
+    return $stmt->rowCount() > 0;
 }
 
 function deleteCricketKit(PDO $pdo, int $item_id): bool

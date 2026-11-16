@@ -94,7 +94,7 @@ if (isset($_POST['editBuyerBtn'])) {
         $shipping_address !== '' &&
         $quantity !== false && $quantity > 0
     ) {
-        $success = updateBuyer($pdo, $buyer_id, $buyer_name, $item_id, $email, $phone, $shipping_address, $quantity, $userId);
+        $success = updateBuyer($pdo, $buyer_id, $buyer_name, $item_id, $email, $phone, $shipping_address, $quantity, $userId, isOwner());
 
         if ($success) {
             header('Location: ../index.php?order=updated');
@@ -107,9 +107,9 @@ if (isset($_POST['editBuyerBtn'])) {
 }
 
 // Handle delete parent kit record
-if (isset($_GET['delete_item_id'])) {
+if (isset($_POST['delete_item_id'])) {
     requireOwner();
-    $item_id = filter_input(INPUT_GET, 'delete_item_id', FILTER_VALIDATE_INT);
+    $item_id = filter_input(INPUT_POST, 'delete_item_id', FILTER_VALIDATE_INT);
 
     if ($item_id !== false && $item_id > 0) {
         $success = deleteCricketKit($pdo, $item_id);
@@ -125,11 +125,11 @@ if (isset($_GET['delete_item_id'])) {
 }
 
 // Handle delete buyer record
-if (isset($_GET['delete_buyer_id'])) {
-    $buyer_id = filter_input(INPUT_GET, 'delete_buyer_id', FILTER_VALIDATE_INT);
+if (isset($_POST['delete_buyer_id'])) {
+    $buyer_id = filter_input(INPUT_POST, 'delete_buyer_id', FILTER_VALIDATE_INT);
 
     if ($buyer_id !== false && $buyer_id > 0) {
-        $success = deleteBuyer($pdo, $buyer_id);
+        $success = deleteBuyer($pdo, $buyer_id, $userId, isOwner());
 
         if ($success) {
             header('Location: ../index.php?order=deleted');

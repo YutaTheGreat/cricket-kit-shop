@@ -3,53 +3,18 @@ require_once __DIR__ . '/core/dbConfig.php';
 require_once __DIR__ . '/core/auth.php';
 requireLogin();
 
-$message = '';
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $buyer_id = isset($_POST['buyer_id']) ? (int) $_POST['buyer_id'] : 0;
-    $buyer_name = trim($_POST['buyer_name'] ?? '');
-    $item_id = isset($_POST['item_id']) ? (int) $_POST['item_id'] : 0;
-    $email = trim($_POST['email'] ?? '');
-    $phone = trim($_POST['phone'] ?? '');
-    $shipping_address = trim($_POST['shipping_address'] ?? '');
-    $quantity = isset($_POST['quantity']) ? (int) $_POST['quantity'] : 0;
-
-    if ($buyer_id > 0 && $buyer_name !== '' && $item_id > 0 && $email !== '' && $phone !== '' && $shipping_address !== '' && $quantity > 0) {
-        $sql = 'UPDATE buyers
-                SET buyer_name = :buyer_name,
-                    item_id = :item_id,
-                    email = :email,
-                    phone = :phone,
-                    shipping_address = :shipping_address,
-                    quantity = :quantity,
-                    added_by = :user_id,
-                    last_updated = CURRENT_TIMESTAMP
-                WHERE buyer_id = :buyer_id';
-
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([
-            ':buyer_name' => $buyer_name,
-            ':item_id' => $item_id,
-            ':email' => $email,
-            ':phone' => $phone,
-            ':shipping_address' => $shipping_address,
-            ':quantity' => $quantity,
-            ':user_id' => currentUserId(),
-            ':buyer_id' => $buyer_id,
-        ]);
-
-        $message = 'Order updated successfully.';
-    } else {
-        $message = 'Please complete all fields.';
-    }
-}
-
 $buyer_id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 $buyer = null;
 
 if ($buyer_id > 0) {
-    $stmt = $pdo->prepare('SELECT * FROM buyers WHERE buyer_id = :buyer_id');
-    $stmt->execute([':buyer_id' => $buyer_id]);
+    $sql = 'SELECT * FROM buyers WHERE buyer_id = :buyer_id';
+    $params = [':buyer_id' => $buyer_id];
+    if (!isOwner()) {
+        $sql .= ' AND added_by = :user_id';
+        $params[':user_id'] = currentUserId();
+    }
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
     $buyer = $stmt->fetch();
 }
 
@@ -101,11 +66,6 @@ $kits = $pdo->query('SELECT item_id, item_brand, item_type FROM cricket_kits ORD
             border-radius: 5px;
             cursor: pointer;
         }
-        .message {
-            margin-bottom: 15px;
-            color: green;
-            font-weight: bold;
-        }
         a {
             color: #0b5fff;
             text-decoration: none;
@@ -116,11 +76,8 @@ $kits = $pdo->query('SELECT item_id, item_brand, item_type FROM cricket_kits ORD
     <div class="card">
         <h1>Edit Buyer Order</h1>
 
-        <?php if ($message !== ''): ?>
-            <div class="message"><?= htmlspecialchars($message) ?></div>
-        <?php endif; ?>
-
-        <form method="POST" action="editBuyerOrder.php?id=<?= (int) $buyer['buyer_id'] ?>">
+        <form method="POST" action="core/handleForms.php">
+            <input type="hidden" name="editBuyerBtn" value="1">
             <input type="hidden" name="buyer_id" value="<?= (int) $buyer['buyer_id'] ?>">
 
             <label for="buyer_name">Buyer Name</label>

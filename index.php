@@ -3,14 +3,30 @@ require_once __DIR__ . '/core/dbConfig.php';
 require_once __DIR__ . '/core/auth.php';
 requireLogin();
 $ownerAccess = isOwner();
+$kitSearch = trim($_GET['kit_search'] ?? '');
+$orderSearch = trim($_GET['order_search'] ?? '');
 
-$stmt = $pdo->query(
-    'SELECT k.item_id, k.item_brand, k.item_type, k.price, k.date_added, k.last_updated,
-            CONCAT_WS(" ", u.first_name, u.last_name) AS added_by_name
-     FROM cricket_kits k
-     LEFT JOIN users u ON u.user_id = k.added_by
-     ORDER BY k.item_id DESC'
-);
+$kitSql = 'SELECT k.item_id, k.item_brand, k.item_type, k.price, k.date_added, k.last_updated,
+                  CONCAT_WS(" ", u.first_name, u.last_name) AS added_by_name
+           FROM cricket_kits k
+           LEFT JOIN users u ON u.user_id = k.added_by';
+$kitParams = [];
+if ($kitSearch !== '') {
+    $kitSql .= ' WHERE CAST(k.item_id AS CHAR) LIKE :kit_id
+                 OR k.item_brand LIKE :kit_brand
+                 OR k.item_type LIKE :kit_type
+                 OR CAST(k.price AS CHAR) LIKE :kit_price';
+    $kitTerm = '%' . $kitSearch . '%';
+    $kitParams = [
+        ':kit_id' => $kitTerm,
+        ':kit_brand' => $kitTerm,
+        ':kit_type' => $kitTerm,
+        ':kit_price' => $kitTerm,
+    ];
+}
+$kitSql .= ' ORDER BY k.item_id DESC';
+$stmt = $pdo->prepare($kitSql);
+$stmt->execute($kitParams);
 $kits = $stmt->fetchAll();
 
 $buyerSql = 'SELECT b.buyer_id, b.buyer_name, b.email, b.phone, b.shipping_address, b.quantity, b.order_date, b.last_updated,
@@ -22,13 +38,33 @@ $buyerSql = 'SELECT b.buyer_id, b.buyer_name, b.email, b.phone, b.shipping_addre
 if (!isOwner()) {
     $buyerSql .= ' WHERE b.added_by = :user_id';
 }
+if ($orderSearch !== '') {
+    $buyerSql .= isOwner() ? ' WHERE ' : ' AND ';
+    $buyerSql .= '(CAST(b.buyer_id AS CHAR) LIKE :order_id
+                   OR b.buyer_name LIKE :buyer_name
+                   OR b.email LIKE :buyer_email
+                   OR b.phone LIKE :buyer_phone
+                   OR k.item_brand LIKE :order_brand
+                   OR k.item_type LIKE :order_type)';
+}
 $buyerSql .= ' ORDER BY b.buyer_id DESC';
 $buyerStmt = $pdo->prepare($buyerSql);
+$buyerParams = [];
 if (!isOwner()) {
-    $buyerStmt->execute([':user_id' => currentUserId()]);
-} else {
-    $buyerStmt->execute();
+    $buyerParams[':user_id'] = currentUserId();
 }
+if ($orderSearch !== '') {
+    $orderTerm = '%' . $orderSearch . '%';
+    $buyerParams += [
+        ':order_id' => $orderTerm,
+        ':buyer_name' => $orderTerm,
+        ':buyer_email' => $orderTerm,
+        ':buyer_phone' => $orderTerm,
+        ':order_brand' => $orderTerm,
+        ':order_type' => $orderTerm,
+    ];
+}
+$buyerStmt->execute($buyerParams);
 $buyers = $buyerStmt->fetchAll();
 ?>
 
@@ -127,6 +163,13 @@ $buyers = $buyerStmt->fetchAll();
         .order-details { max-width: 1200px; margin: 28px auto 0; padding: 14px; background: #fff; border-radius: 10px; box-shadow: 0 8px 24px rgba(22, 50, 92, .09); }
         .order-details summary { color: #145da0; font-weight: bold; cursor: pointer; padding: 6px; }
         .order-details table { margin-top: 14px; }
+        .search-form { display: flex; align-items: center; gap: 10px; max-width: 700px; margin-bottom: 16px; padding: 12px 16px; }
+        .search-form label { margin: 0; white-space: nowrap; }
+        .search-form input { flex: 1; min-width: 0; }
+        .search-form button { margin: 0; white-space: nowrap; }
+        .actions form { max-width: none; margin: 0; padding: 0; border: 0; box-shadow: none; }
+        .actions button { margin: 0; padding: 0; background: transparent; color: #0b5fff; font: inherit; }
+        .actions button:hover { background: transparent; transform: none; text-decoration: underline; }
     </style>
 </head>
 <body>
@@ -135,6 +178,12 @@ $buyers = $buyerStmt->fetchAll();
 
     <?php if ($ownerAccess): ?>
     <h2>Cricket Kits</h2>
+    <form class="search-form" method="get" action="index.php">
+        <label for="kit_search">Search kits</label>
+        <input id="kit_search" name="kit_search" type="search" value="<?= htmlspecialchars($kitSearch) ?>" placeholder="ID, brand, type, or price">
+        <button type="submit">Search</button>
+        <?php if ($kitSearch !== ''): ?><a href="index.php">Clear</a><?php endif; ?>
+    </form>
     <table>
         <thead>
             <tr>
@@ -168,7 +217,10 @@ $buyers = $buyerStmt->fetchAll();
                         <td>
                             <div class="actions">
                                 <a href="editOrder.php?id=<?= (int) $kit['item_id'] ?>">Edit</a>
-                                <a href="core/handleForms.php?delete_item_id=<?= (int) $kit['item_id'] ?>" onclick="return confirm('Delete this kit and all related buyer orders?')">Delete</a>
+                                <form method="post" action="core/handleForms.php" onsubmit="return confirm('Delete this kit and all related buyer orders?')">
+                                    <input type="hidden" name="delete_item_id" value="<?= (int) $kit['item_id'] ?>">
+                                    <button type="submit">Delete</button>
+                                </form>
                             </div>
                         </td>
                         <?php endif; ?>
@@ -240,6 +292,12 @@ $buyers = $buyerStmt->fetchAll();
     <details class="order-details">
         <summary>View my order details</summary>
     <?php endif; ?>
+    <form class="search-form" method="get" action="index.php">
+        <label for="order_search">Search orders</label>
+        <input id="order_search" name="order_search" type="search" value="<?= htmlspecialchars($orderSearch) ?>" placeholder="ID, buyer, contact, or kit">
+        <button type="submit">Search</button>
+        <?php if ($orderSearch !== ''): ?><a href="index.php">Clear</a><?php endif; ?>
+    </form>
     <table>
         <thead>
             <tr>
@@ -259,7 +317,7 @@ $buyers = $buyerStmt->fetchAll();
         <tbody>
             <?php if (empty($buyers)): ?>
                 <tr>
-                    <td colspan="11">No buyer orders yet.</td>
+                    <td colspan="11"><?= $orderSearch === '' ? 'No buyer orders yet.' : 'No matching orders found.' ?></td>
                 </tr>
             <?php else: ?>
                 <?php foreach ($buyers as $buyer): ?>
@@ -278,7 +336,10 @@ $buyers = $buyerStmt->fetchAll();
                         <td>
                             <div class="actions">
                                 <a href="editBuyerOrder.php?id=<?= (int) $buyer['buyer_id'] ?>">Edit</a>
-                                <a href="core/handleForms.php?delete_buyer_id=<?= (int) $buyer['buyer_id'] ?>" onclick="return confirm('Delete this order?')">Delete</a>
+                                <form method="post" action="core/handleForms.php" onsubmit="return confirm('Delete this order?')">
+                                    <input type="hidden" name="delete_buyer_id" value="<?= (int) $buyer['buyer_id'] ?>">
+                                    <button type="submit">Delete</button>
+                                </form>
                             </div>
                         </td>
                     </tr>
