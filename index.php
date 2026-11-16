@@ -151,11 +151,13 @@ $buyers = $buyerStmt->fetchAll();
             font-weight: bold;
         }
         body { background: linear-gradient(135deg, #eef4ff, #f7fafc); }
-        body > h1, body > h2, body > table, body > form, body > .customer-note, body > div { max-width: 1200px; margin-left: auto; margin-right: auto; }
+        body > h1, body > h2, body > .table-scroll, body > form, body > .customer-note, body > div { max-width: 1200px; margin-left: auto; margin-right: auto; }
         body > div:first-of-type { display: flex; padding: 18px 22px; border-radius: 12px; background: #fff; box-shadow: 0 8px 24px rgba(22, 50, 92, .09); }
         h1 { color: #173a63; }
         h2 { color: #245b91; }
-        table { border-radius: 10px; overflow: hidden; }
+        .table-scroll { max-height: 420px; overflow: auto; margin-bottom: 30px; border-radius: 10px; box-shadow: 0 8px 24px rgba(22, 50, 92, .09); }
+        table { min-width: 1000px; margin-bottom: 0; border-radius: 10px; overflow: hidden; }
+        .table-scroll th { position: sticky; top: 0; z-index: 1; }
         th { background: #dbe9f9; color: #173a63; }
         tr:nth-child(even) td { background: #f8fbff; }
         form { border-top: 4px solid #145da0; }
@@ -188,6 +190,7 @@ $buyers = $buyerStmt->fetchAll();
         <button type="submit">Search</button>
         <?php if ($kitSearch !== ''): ?><a href="index.php">Clear</a><?php endif; ?>
     </form>
+    <div class="table-scroll">
     <table>
         <thead>
             <tr>
@@ -235,6 +238,7 @@ $buyers = $buyerStmt->fetchAll();
             <?php endif; ?>
         </tbody>
     </table>
+    </div>
     <?php endif; ?>
 
     <?php if ($ownerAccess): ?>
@@ -304,6 +308,7 @@ $buyers = $buyerStmt->fetchAll();
         <button type="submit">Search</button>
         <?php if ($orderSearch !== ''): ?><a href="index.php">Clear</a><?php endif; ?>
     </form>
+    <div class="table-scroll">
     <table>
         <thead>
             <tr>
@@ -355,6 +360,7 @@ $buyers = $buyerStmt->fetchAll();
             <?php endif; ?>
         </tbody>
     </table>
+    </div>
     <?php if (!$ownerAccess): ?></details><?php endif; ?>
 </body>
 </html>
