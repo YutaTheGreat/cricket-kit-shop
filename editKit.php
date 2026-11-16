@@ -17,7 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 SET item_brand = :brand,
                     item_type = :type,
                     price = :price,
-                    added_by = :user_id,
+                last_updated_by = :user_id,
                     last_updated = CURRENT_TIMESTAMP
                 WHERE item_id = :id';
 

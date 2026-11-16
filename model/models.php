@@ -2,25 +2,25 @@
 
 function insertCricketKit(PDO $pdo, string $item_brand, string $item_type, int $price, int $userId): bool
 {
-    $stmt = $pdo->prepare("INSERT INTO cricket_kits (item_brand, item_type, price, added_by) VALUES (:item_brand, :item_type, :price, :user_id)");
-    return $stmt->execute([':item_brand' => $item_brand, ':item_type' => $item_type, ':price' => $price, ':user_id' => $userId]);
+    $stmt = $pdo->prepare("INSERT INTO cricket_kits (item_brand, item_type, price, added_by, last_updated_by) VALUES (:item_brand, :item_type, :price, :added_by, :last_updated_by)");
+    return $stmt->execute([':item_brand' => $item_brand, ':item_type' => $item_type, ':price' => $price, ':added_by' => $userId, ':last_updated_by' => $userId]);
 }
 
 function updateCricketKit(PDO $pdo, int $item_id, string $item_brand, string $item_type, int $price, int $userId): bool
 {
-    $stmt = $pdo->prepare("UPDATE cricket_kits SET item_brand = :item_brand, item_type = :item_type, price = :price, added_by = :user_id, last_updated = CURRENT_TIMESTAMP WHERE item_id = :item_id");
+    $stmt = $pdo->prepare("UPDATE cricket_kits SET item_brand = :item_brand, item_type = :item_type, price = :price, last_updated_by = :user_id, last_updated = CURRENT_TIMESTAMP WHERE item_id = :item_id");
     return $stmt->execute([':item_id' => $item_id, ':item_brand' => $item_brand, ':item_type' => $item_type, ':price' => $price, ':user_id' => $userId]);
 }
 
 function insertBuyer(PDO $pdo, string $buyer_name, int $item_id, string $email, string $phone, string $shipping_address, int $quantity, int $userId): bool
 {
-    $stmt = $pdo->prepare("INSERT INTO buyers (buyer_name, item_id, email, phone, shipping_address, quantity, added_by) VALUES (:buyer_name, :item_id, :email, :phone, :shipping_address, :quantity, :user_id)");
-    return $stmt->execute([':buyer_name' => $buyer_name, ':item_id' => $item_id, ':email' => $email, ':phone' => $phone, ':shipping_address' => $shipping_address, ':quantity' => $quantity, ':user_id' => $userId]);
+    $stmt = $pdo->prepare("INSERT INTO buyers (buyer_name, item_id, email, phone, shipping_address, quantity, added_by, last_updated_by) VALUES (:buyer_name, :item_id, :email, :phone, :shipping_address, :quantity, :added_by, :last_updated_by)");
+    return $stmt->execute([':buyer_name' => $buyer_name, ':item_id' => $item_id, ':email' => $email, ':phone' => $phone, ':shipping_address' => $shipping_address, ':quantity' => $quantity, ':added_by' => $userId, ':last_updated_by' => $userId]);
 }
 
 function updateBuyer(PDO $pdo, int $buyer_id, string $buyer_name, int $item_id, string $email, string $phone, string $shipping_address, int $quantity, int $userId, bool $isOwner): bool
 {
-    $stmt = $pdo->prepare("UPDATE buyers SET buyer_name = :buyer_name, item_id = :item_id, email = :email, phone = :phone, shipping_address = :shipping_address, quantity = :quantity, last_updated = CURRENT_TIMESTAMP WHERE buyer_id = :buyer_id AND (:is_owner = 1 OR added_by = :user_id)");
+    $stmt = $pdo->prepare("UPDATE buyers SET buyer_name = :buyer_name, item_id = :item_id, email = :email, phone = :phone, shipping_address = :shipping_address, quantity = :quantity, last_updated_by = :last_updated_by, last_updated = CURRENT_TIMESTAMP WHERE buyer_id = :buyer_id AND (:is_owner = 1 OR added_by = :user_id)");
     $params = [
         ':buyer_id' => $buyer_id,
         ':buyer_name' => $buyer_name,
@@ -29,6 +29,7 @@ function updateBuyer(PDO $pdo, int $buyer_id, string $buyer_name, int $item_id, 
         ':phone' => $phone,
         ':shipping_address' => $shipping_address,
         ':quantity' => $quantity,
+        ':last_updated_by' => $userId,
         ':is_owner' => $isOwner ? 1 : 0,
         ':user_id' => $userId,
     ];

@@ -7,9 +7,11 @@ $kitSearch = trim($_GET['kit_search'] ?? '');
 $orderSearch = trim($_GET['order_search'] ?? '');
 
 $kitSql = 'SELECT k.item_id, k.item_brand, k.item_type, k.price, k.date_added, k.last_updated,
-                  CONCAT_WS(" ", u.first_name, u.last_name) AS added_by_name
+                  CONCAT_WS(" ", u.first_name, u.last_name) AS added_by_name,
+                  CONCAT_WS(" ", editor.first_name, editor.last_name) AS last_updated_by_name
            FROM cricket_kits k
-           LEFT JOIN users u ON u.user_id = k.added_by';
+           LEFT JOIN users u ON u.user_id = k.added_by
+           LEFT JOIN users editor ON editor.user_id = k.last_updated_by';
 $kitParams = [];
 if ($kitSearch !== '') {
     $kitSql .= ' WHERE CAST(k.item_id AS CHAR) LIKE :kit_id
@@ -31,10 +33,12 @@ $kits = $stmt->fetchAll();
 
 $buyerSql = 'SELECT b.buyer_id, b.buyer_name, b.email, b.phone, b.shipping_address, b.quantity, b.order_date, b.last_updated,
             k.item_brand, k.item_type, k.price,
-            CONCAT_WS(" ", u.first_name, u.last_name) AS added_by_name
+            CONCAT_WS(" ", u.first_name, u.last_name) AS added_by_name,
+            CONCAT_WS(" ", editor.first_name, editor.last_name) AS last_updated_by_name
      FROM buyers b
      JOIN cricket_kits k ON k.item_id = b.item_id
-     LEFT JOIN users u ON u.user_id = b.added_by';
+     LEFT JOIN users u ON u.user_id = b.added_by
+     LEFT JOIN users editor ON editor.user_id = b.last_updated_by';
 if (!isOwner()) {
     $buyerSql .= ' WHERE b.added_by = :user_id';
 }
@@ -194,13 +198,14 @@ $buyers = $buyerStmt->fetchAll();
                 <th>Date Added</th>
                 <th>Added By</th>
                 <th>Last Updated</th>
+                <th>Last Updated By</th>
                 <?php if ($ownerAccess): ?><th>Action</th><?php endif; ?>
             </tr>
         </thead>
         <tbody>
             <?php if (empty($kits)): ?>
                 <tr>
-                    <td colspan="<?= $ownerAccess ? 8 : 7 ?>">No kits found.</td>
+                    <td colspan="<?= $ownerAccess ? 9 : 8 ?>">No kits found.</td>
                 </tr>
             <?php else: ?>
                 <?php foreach ($kits as $kit): ?>
@@ -213,6 +218,7 @@ $buyers = $buyerStmt->fetchAll();
                         <td><?= htmlspecialchars($kit['date_added']) ?></td>
                         <td><?= htmlspecialchars($kit['added_by_name'] ?: 'Unknown') ?></td>
                         <td><?= htmlspecialchars($kit['last_updated']) ?></td>
+                        <td><?= htmlspecialchars($kit['last_updated_by_name'] ?: 'Unknown') ?></td>
                         <?php if ($ownerAccess): ?>
                         <td>
                             <div class="actions">
@@ -311,13 +317,14 @@ $buyers = $buyerStmt->fetchAll();
                 <th>Order Date</th>
                 <th>Added By</th>
                 <th>Last Updated</th>
+                <th>Last Updated By</th>
                 <th>Action</th>
             </tr>
         </thead>
         <tbody>
             <?php if (empty($buyers)): ?>
                 <tr>
-                    <td colspan="11"><?= $orderSearch === '' ? 'No buyer orders yet.' : 'No matching orders found.' ?></td>
+                    <td colspan="12"><?= $orderSearch === '' ? 'No buyer orders yet.' : 'No matching orders found.' ?></td>
                 </tr>
             <?php else: ?>
                 <?php foreach ($buyers as $buyer): ?>
@@ -333,6 +340,7 @@ $buyers = $buyerStmt->fetchAll();
                         <td><?= htmlspecialchars($buyer['order_date']) ?></td>
                         <td><?= htmlspecialchars($buyer['added_by_name'] ?: 'Unknown') ?></td>
                         <td><?= htmlspecialchars($buyer['last_updated']) ?></td>
+                        <td><?= htmlspecialchars($buyer['last_updated_by_name'] ?: 'Unknown') ?></td>
                         <td>
                             <div class="actions">
                                 <a href="editBuyerOrder.php?id=<?= (int) $buyer['buyer_id'] ?>">Edit</a>

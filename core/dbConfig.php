@@ -55,6 +55,16 @@ try {
         if (!$hasLastUpdated) {
             $pdo->exec("ALTER TABLE $table ADD COLUMN last_updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP");
         }
+        $hasLastUpdatedBy = $pdo->query("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '$table' AND COLUMN_NAME = 'last_updated_by'")->fetchColumn();
+        if (!$hasLastUpdatedBy) {
+            $pdo->exec("ALTER TABLE $table ADD COLUMN last_updated_by INT NULL");
+            $pdo->exec("UPDATE $table SET last_updated_by = added_by WHERE last_updated_by IS NULL AND added_by IS NOT NULL");
+        }
+        $hasLastUpdatedByConstraint = $pdo->query("SELECT COUNT(*) FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '$table' AND COLUMN_NAME = 'last_updated_by' AND REFERENCED_TABLE_NAME = 'users'")->fetchColumn();
+        if (!$hasLastUpdatedByConstraint) {
+            $lastUpdatedByConstraint = 'fk_' . $table . '_last_updated_by';
+            $pdo->exec("ALTER TABLE $table ADD CONSTRAINT $lastUpdatedByConstraint FOREIGN KEY (last_updated_by) REFERENCES users(user_id)");
+        }
     }
 } catch (PDOException $e) {
     die("Database Connection Failed: " . $e->getMessage());
