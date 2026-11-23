@@ -10,7 +10,7 @@ $item_id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 $kit = null;
 
 if ($item_id > 0) {
-    $stmt = $pdo->prepare('SELECT item_id, item_brand, item_type, price FROM cricket_kits WHERE item_id = :id');
+    $stmt = $pdo->prepare('SELECT item_id, item_brand, item_type, price FROM cricket_kits WHERE item_id = :id AND deleted_at IS NULL');
     $stmt->execute([':id' => $item_id]);
     $kit = $stmt->fetch();
 }

@@ -65,6 +65,25 @@ try {
             $lastUpdatedByConstraint = 'fk_' . $table . '_last_updated_by';
             $pdo->exec("ALTER TABLE $table ADD CONSTRAINT $lastUpdatedByConstraint FOREIGN KEY (last_updated_by) REFERENCES users(user_id)");
         }
+        $hasDeletedAt = $pdo->query("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '$table' AND COLUMN_NAME = 'deleted_at'")->fetchColumn();
+        if (!$hasDeletedAt) {
+            $pdo->exec("ALTER TABLE $table ADD COLUMN deleted_at TIMESTAMP NULL DEFAULT NULL");
+        }
+        $hasDeletedBy = $pdo->query("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '$table' AND COLUMN_NAME = 'deleted_by'")->fetchColumn();
+        if (!$hasDeletedBy) {
+            $pdo->exec("ALTER TABLE $table ADD COLUMN deleted_by INT NULL");
+        }
+        $hasDeletedByConstraint = $pdo->query("SELECT COUNT(*) FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '$table' AND COLUMN_NAME = 'deleted_by' AND REFERENCED_TABLE_NAME = 'users'")->fetchColumn();
+        if (!$hasDeletedByConstraint) {
+            $deletedByConstraint = 'fk_' . $table . '_deleted_by';
+            $pdo->exec("ALTER TABLE $table ADD CONSTRAINT $deletedByConstraint FOREIGN KEY (deleted_by) REFERENCES users(user_id)");
+        }
+        if ($table === 'buyers') {
+            $hasDeletedWithItem = $pdo->query("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'buyers' AND COLUMN_NAME = 'deleted_with_item'")->fetchColumn();
+            if (!$hasDeletedWithItem) {
+                $pdo->exec("ALTER TABLE buyers ADD COLUMN deleted_with_item TINYINT(1) NOT NULL DEFAULT 0");
+            }
+        }
     }
 } catch (PDOException $e) {
     die("Database Connection Failed: " . $e->getMessage());

@@ -112,7 +112,7 @@ if (isset($_POST['delete_item_id'])) {
     $item_id = filter_input(INPUT_POST, 'delete_item_id', FILTER_VALIDATE_INT);
 
     if ($item_id !== false && $item_id > 0) {
-        $success = deleteCricketKit($pdo, $item_id);
+        $success = deleteCricketKit($pdo, $item_id, $userId);
 
         if ($success) {
             header('Location: ../index.php?kit=deleted');
@@ -121,6 +121,20 @@ if (isset($_POST['delete_item_id'])) {
     }
 
     header('Location: ../index.php?kit=delete_error');
+    exit();
+}
+
+// Handle restoring a deleted kit and orders deleted with it
+if (isset($_POST['restore_item_id'])) {
+    requireOwner();
+    $item_id = filter_input(INPUT_POST, 'restore_item_id', FILTER_VALIDATE_INT);
+
+    if ($item_id !== false && $item_id > 0 && restoreCricketKit($pdo, $item_id)) {
+        header('Location: ../index.php?kit=restored');
+        exit();
+    }
+
+    header('Location: ../index.php?kit=restore_error');
     exit();
 }
 
@@ -138,6 +152,19 @@ if (isset($_POST['delete_buyer_id'])) {
     }
 
     header('Location: ../index.php?order=delete_error');
+    exit();
+}
+
+// Handle restoring a deleted buyer order
+if (isset($_POST['restore_buyer_id'])) {
+    $buyer_id = filter_input(INPUT_POST, 'restore_buyer_id', FILTER_VALIDATE_INT);
+
+    if ($buyer_id !== false && $buyer_id > 0 && restoreBuyer($pdo, $buyer_id, $userId, isOwner())) {
+        header('Location: ../index.php?order=restored');
+        exit();
+    }
+
+    header('Location: ../index.php?order=restore_error');
     exit();
 }
 ?>

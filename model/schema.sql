@@ -23,9 +23,12 @@ CREATE TABLE IF NOT EXISTS cricket_kits (
     date_added TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     added_by INT NULL,
     last_updated_by INT NULL,
+    deleted_at TIMESTAMP NULL DEFAULT NULL,
+    deleted_by INT NULL,
     last_updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (added_by) REFERENCES users(user_id),
-    FOREIGN KEY (last_updated_by) REFERENCES users(user_id)
+    FOREIGN KEY (last_updated_by) REFERENCES users(user_id),
+    FOREIGN KEY (deleted_by) REFERENCES users(user_id)
 );
 
 CREATE TABLE IF NOT EXISTS buyers (
@@ -39,8 +42,12 @@ CREATE TABLE IF NOT EXISTS buyers (
     order_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     added_by INT NULL,
     last_updated_by INT NULL,
+    deleted_at TIMESTAMP NULL DEFAULT NULL,
+    deleted_by INT NULL,
+    deleted_with_item TINYINT(1) NOT NULL DEFAULT 0,
     last_updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (item_id) REFERENCES cricket_kits(item_id),
     FOREIGN KEY (added_by) REFERENCES users(user_id),
-    FOREIGN KEY (last_updated_by) REFERENCES users(user_id)
+    FOREIGN KEY (last_updated_by) REFERENCES users(user_id),
+    FOREIGN KEY (deleted_by) REFERENCES users(user_id)
 );

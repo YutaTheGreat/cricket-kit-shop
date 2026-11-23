@@ -11,13 +11,14 @@ $kitSql = 'SELECT k.item_id, k.item_brand, k.item_type, k.price, k.date_added, k
                   CONCAT_WS(" ", editor.first_name, editor.last_name) AS last_updated_by_name
            FROM cricket_kits k
            LEFT JOIN users u ON u.user_id = k.added_by
-           LEFT JOIN users editor ON editor.user_id = k.last_updated_by';
+           LEFT JOIN users editor ON editor.user_id = k.last_updated_by
+           WHERE k.deleted_at IS NULL';
 $kitParams = [];
 if ($kitSearch !== '') {
-    $kitSql .= ' WHERE CAST(k.item_id AS CHAR) LIKE :kit_id
+    $kitSql .= ' AND (CAST(k.item_id AS CHAR) LIKE :kit_id
                  OR k.item_brand LIKE :kit_brand
                  OR k.item_type LIKE :kit_type
-                 OR CAST(k.price AS CHAR) LIKE :kit_price';
+                 OR CAST(k.price AS CHAR) LIKE :kit_price)';
     $kitTerm = '%' . $kitSearch . '%';
     $kitParams = [
         ':kit_id' => $kitTerm,
@@ -31,6 +32,16 @@ $stmt = $pdo->prepare($kitSql);
 $stmt->execute($kitParams);
 $kits = $stmt->fetchAll();
 
+$deletedKits = [];
+if ($ownerAccess) {
+    $deletedKits = $pdo->query('SELECT k.item_id, k.item_brand, k.item_type, k.deleted_at,
+                CONCAT_WS(" ", u.first_name, u.last_name) AS deleted_by_name
+         FROM cricket_kits k
+         LEFT JOIN users u ON u.user_id = k.deleted_by
+         WHERE k.deleted_at IS NOT NULL
+         ORDER BY k.deleted_at DESC')->fetchAll();
+}
+
 $buyerSql = 'SELECT b.buyer_id, b.buyer_name, b.email, b.phone, b.shipping_address, b.quantity, b.order_date, b.last_updated,
             k.item_brand, k.item_type, k.price,
             CONCAT_WS(" ", u.first_name, u.last_name) AS added_by_name,
@@ -38,13 +49,13 @@ $buyerSql = 'SELECT b.buyer_id, b.buyer_name, b.email, b.phone, b.shipping_addre
      FROM buyers b
      JOIN cricket_kits k ON k.item_id = b.item_id
      LEFT JOIN users u ON u.user_id = b.added_by
-     LEFT JOIN users editor ON editor.user_id = b.last_updated_by';
+     LEFT JOIN users editor ON editor.user_id = b.last_updated_by
+     WHERE b.deleted_at IS NULL AND k.deleted_at IS NULL';
 if (!isOwner()) {
-    $buyerSql .= ' WHERE b.added_by = :user_id';
+    $buyerSql .= ' AND b.added_by = :user_id';
 }
 if ($orderSearch !== '') {
-    $buyerSql .= isOwner() ? ' WHERE ' : ' AND ';
-    $buyerSql .= '(CAST(b.buyer_id AS CHAR) LIKE :order_id
+    $buyerSql .= ' AND (CAST(b.buyer_id AS CHAR) LIKE :order_id
                    OR b.buyer_name LIKE :buyer_name
                    OR b.email LIKE :buyer_email
                    OR b.phone LIKE :buyer_phone
@@ -70,6 +81,23 @@ if ($orderSearch !== '') {
 }
 $buyerStmt->execute($buyerParams);
 $buyers = $buyerStmt->fetchAll();
+
+$deletedBuyerSql = 'SELECT b.buyer_id, b.buyer_name, b.deleted_at, b.deleted_with_item,
+            k.item_brand, k.item_type,
+            CONCAT_WS(" ", deleter.first_name, deleter.last_name) AS deleted_by_name
+     FROM buyers b
+     JOIN cricket_kits k ON k.item_id = b.item_id
+     LEFT JOIN users deleter ON deleter.user_id = b.deleted_by
+     WHERE b.deleted_at IS NOT NULL';
+$deletedBuyerParams = [];
+if (!$ownerAccess) {
+    $deletedBuyerSql .= ' AND b.added_by = :user_id';
+    $deletedBuyerParams[':user_id'] = currentUserId();
+}
+$deletedBuyerSql .= ' ORDER BY b.deleted_at DESC';
+$deletedBuyerStmt = $pdo->prepare($deletedBuyerSql);
+$deletedBuyerStmt->execute($deletedBuyerParams);
+$deletedBuyers = $deletedBuyerStmt->fetchAll();
 ?>
 
 <!DOCTYPE html>
@@ -176,6 +204,8 @@ $buyers = $buyerStmt->fetchAll();
         .actions form { max-width: none; margin: 0; padding: 0; border: 0; box-shadow: none; }
         .actions button { margin: 0; padding: 0; background: transparent; color: #0b5fff; font: inherit; }
         .actions button:hover { background: transparent; transform: none; text-decoration: underline; }
+        .table-scroll form { max-width: none; margin: 0; padding: 0; border: 0; background: transparent; box-shadow: none; }
+        .table-scroll button { margin: 0; }
     </style>
 </head>
 <body>
@@ -233,6 +263,42 @@ $buyers = $buyerStmt->fetchAll();
                             </div>
                         </td>
                         <?php endif; ?>
+                    </tr>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </tbody>
+    </table>
+    </div>
+    <h2>Deleted Cricket Kits</h2>
+    <div class="table-scroll">
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Brand</th>
+                <th>Type</th>
+                <th>Deleted At</th>
+                <th>Deleted By</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php if (empty($deletedKits)): ?>
+                <tr><td colspan="6">No deleted kits.</td></tr>
+            <?php else: ?>
+                <?php foreach ($deletedKits as $kit): ?>
+                    <tr>
+                        <td><?= (int) $kit['item_id'] ?></td>
+                        <td><?= htmlspecialchars($kit['item_brand']) ?></td>
+                        <td><?= htmlspecialchars($kit['item_type']) ?></td>
+                        <td><?= htmlspecialchars($kit['deleted_at']) ?></td>
+                        <td><?= htmlspecialchars($kit['deleted_by_name'] ?: 'Unknown') ?></td>
+                        <td>
+                            <form method="post" action="core/handleForms.php">
+                                <input type="hidden" name="restore_item_id" value="<?= (int) $kit['item_id'] ?>">
+                                <button type="submit">Restore</button>
+                            </form>
+                        </td>
                     </tr>
                 <?php endforeach; ?>
             <?php endif; ?>
@@ -354,6 +420,46 @@ $buyers = $buyerStmt->fetchAll();
                                     <button type="submit">Delete</button>
                                 </form>
                             </div>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </tbody>
+    </table>
+    </div>
+    <h2>Deleted Buyer Orders</h2>
+    <div class="table-scroll">
+    <table>
+        <thead>
+            <tr>
+                <th>Buyer ID</th>
+                <th>Buyer</th>
+                <th>Kit</th>
+                <th>Deleted At</th>
+                <th>Deleted By</th>
+                <th>Restore</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php if (empty($deletedBuyers)): ?>
+                <tr><td colspan="6">No deleted orders.</td></tr>
+            <?php else: ?>
+                <?php foreach ($deletedBuyers as $buyer): ?>
+                    <tr>
+                        <td><?= (int) $buyer['buyer_id'] ?></td>
+                        <td><?= htmlspecialchars($buyer['buyer_name']) ?></td>
+                        <td><?= htmlspecialchars($buyer['item_brand']) ?> - <?= htmlspecialchars($buyer['item_type']) ?></td>
+                        <td><?= htmlspecialchars($buyer['deleted_at']) ?></td>
+                        <td><?= htmlspecialchars($buyer['deleted_by_name'] ?: 'Unknown') ?></td>
+                        <td>
+                            <?php if ((int) $buyer['deleted_with_item'] === 1): ?>
+                                Restore the deleted kit to restore this order.
+                            <?php else: ?>
+                                <form method="post" action="core/handleForms.php">
+                                    <input type="hidden" name="restore_buyer_id" value="<?= (int) $buyer['buyer_id'] ?>">
+                                    <button type="submit">Restore</button>
+                                </form>
+                            <?php endif; ?>
                         </td>
                     </tr>
                 <?php endforeach; ?>

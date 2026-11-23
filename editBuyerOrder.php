@@ -7,7 +7,7 @@ $buyer_id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 $buyer = null;
 
 if ($buyer_id > 0) {
-    $sql = 'SELECT * FROM buyers WHERE buyer_id = :buyer_id';
+    $sql = 'SELECT * FROM buyers WHERE buyer_id = :buyer_id AND deleted_at IS NULL';
     $params = [':buyer_id' => $buyer_id];
     if (!isOwner()) {
         $sql .= ' AND added_by = :user_id';
@@ -23,7 +23,7 @@ if (!$buyer) {
     exit;
 }
 
-$kits = $pdo->query('SELECT item_id, item_brand, item_type FROM cricket_kits ORDER BY item_id DESC')->fetchAll();
+$kits = $pdo->query('SELECT item_id, item_brand, item_type FROM cricket_kits WHERE deleted_at IS NULL ORDER BY item_id DESC')->fetchAll();
 ?>
 
 <!DOCTYPE html>
