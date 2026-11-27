@@ -83,6 +83,10 @@ try {
             if (!$hasDeletedWithItem) {
                 $pdo->exec("ALTER TABLE buyers ADD COLUMN deleted_with_item TINYINT(1) NOT NULL DEFAULT 0");
             }
+            $hasImagePath = $pdo->query("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'buyers' AND COLUMN_NAME = 'image_path'")->fetchColumn();
+            if (!$hasImagePath) {
+                $pdo->exec("ALTER TABLE buyers ADD COLUMN image_path VARCHAR(255) NULL");
+            }
         }
     }
 } catch (PDOException $e) {

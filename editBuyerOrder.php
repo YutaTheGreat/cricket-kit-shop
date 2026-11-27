@@ -76,7 +76,7 @@ $kits = $pdo->query('SELECT item_id, item_brand, item_type FROM cricket_kits WHE
     <div class="card">
         <h1>Edit Buyer Order</h1>
 
-        <form method="POST" action="core/handleForms.php">
+        <form method="POST" action="core/handleForms.php" enctype="multipart/form-data">
             <input type="hidden" name="editBuyerBtn" value="1">
             <input type="hidden" name="buyer_id" value="<?= (int) $buyer['buyer_id'] ?>">
 
@@ -103,6 +103,13 @@ $kits = $pdo->query('SELECT item_id, item_brand, item_type FROM cricket_kits WHE
 
             <label for="quantity">Quantity</label>
             <input id="quantity" name="quantity" type="number" min="1" value="<?= (int) $buyer['quantity'] ?>" required>
+
+            <?php if (!empty($buyer['image_path'])): ?>
+                <p>Current image:</p>
+                <img src="<?= htmlspecialchars($buyer['image_path']) ?>" alt="Current image for order #<?= (int) $buyer['buyer_id'] ?>" style="max-width:180px;max-height:180px;object-fit:cover">
+            <?php endif; ?>
+            <label for="order_image">Replace order image (optional; JPEG, PNG, or WebP, max 5 MB)</label>
+            <input id="order_image" name="order_image" type="file" accept="image/jpeg,image/png,image/webp">
 
             <button type="submit">Update Order</button>
         </form>

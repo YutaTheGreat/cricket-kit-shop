@@ -5,6 +5,7 @@ requireLogin();
 $ownerAccess = isOwner();
 $kitSearch = trim($_GET['kit_search'] ?? '');
 $orderSearch = trim($_GET['order_search'] ?? '');
+$orderUploadError = isset($_GET['order']) && $_GET['order'] === 'image_error';
 
 $kitSql = 'SELECT k.item_id, k.item_brand, k.item_type, k.price, k.date_added, k.last_updated,
                   CONCAT_WS(" ", u.first_name, u.last_name) AS added_by_name,
@@ -42,7 +43,7 @@ if ($ownerAccess) {
          ORDER BY k.deleted_at DESC')->fetchAll();
 }
 
-$buyerSql = 'SELECT b.buyer_id, b.buyer_name, b.email, b.phone, b.shipping_address, b.quantity, b.order_date, b.last_updated,
+$buyerSql = 'SELECT b.buyer_id, b.buyer_name, b.email, b.phone, b.shipping_address, b.quantity, b.image_path, b.order_date, b.last_updated,
             k.item_brand, k.item_type, k.price,
             CONCAT_WS(" ", u.first_name, u.last_name) AS added_by_name,
             CONCAT_WS(" ", editor.first_name, editor.last_name) AS last_updated_by_name
@@ -178,6 +179,8 @@ $deletedBuyers = $deletedBuyerStmt->fetchAll();
             color: #056b3a;
             font-weight: bold;
         }
+        .error-message { color: #b00020; }
+        .order-image { width: 90px; height: 90px; object-fit: cover; border-radius: 6px; }
         body { background: linear-gradient(135deg, #eef4ff, #f7fafc); }
         body > h1, body > h2, body > .table-scroll, body > form, body > .customer-note, body > div { max-width: 1200px; margin-left: auto; margin-right: auto; }
         body > div:first-of-type { display: flex; padding: 18px 22px; border-radius: 12px; background: #fff; box-shadow: 0 8px 24px rgba(22, 50, 92, .09); }
@@ -211,6 +214,9 @@ $deletedBuyers = $deletedBuyerStmt->fetchAll();
 <body>
     <!-- Escape dynamic text at the HTML output point to prevent stored or reflected markup from executing. -->
     <div style="display:flex;justify-content:space-between;align-items:center"><h1>Cricket Kit Shop</h1><div>Welcome, <strong><?= htmlspecialchars(currentUserName()) ?></strong> | <a href="logout.php">Logout</a></div></div>
+    <?php if ($orderUploadError): ?>
+        <p class="message error-message">The order image could not be uploaded. Choose a JPEG, PNG, or WebP image smaller than 5 MB and try again.</p>
+    <?php endif; ?>
 
     <?php if ($ownerAccess): ?>
     <h2>Cricket Kits</h2>
@@ -330,7 +336,7 @@ $deletedBuyers = $deletedBuyerStmt->fetchAll();
     <?php endif; ?>
 
     <?php if (!$ownerAccess): ?>
-    <form method="POST" action="core/handleForms.php">
+    <form method="POST" action="core/handleForms.php" enctype="multipart/form-data">
         <input type="hidden" name="placeOrderBtn" value="1">
 
         <label for="buyer_name">Buyer Name</label>
@@ -358,6 +364,9 @@ $deletedBuyers = $deletedBuyerStmt->fetchAll();
         <label for="quantity">Quantity</label>
         <input id="quantity" name="quantity" type="number" min="1" value="1" required>
 
+        <label for="order_image">Order Image (optional; JPEG, PNG, or WebP, max 5 MB)</label>
+        <input id="order_image" name="order_image" type="file" accept="image/jpeg,image/png,image/webp">
+
         <button type="submit">Place Order</button>
     </form>
     <?php endif; ?>
@@ -381,6 +390,7 @@ $deletedBuyers = $deletedBuyerStmt->fetchAll();
                 <th>Buyer ID</th>
                 <th>Buyer</th>
                 <th>Kit</th>
+                <th>Image</th>
                 <th>Email</th>
                 <th>Phone</th>
                 <th>Address</th>
@@ -395,7 +405,7 @@ $deletedBuyers = $deletedBuyerStmt->fetchAll();
         <tbody>
             <?php if (empty($buyers)): ?>
                 <tr>
-                    <td colspan="12"><?= $orderSearch === '' ? 'No buyer orders yet.' : 'No matching orders found.' ?></td>
+                    <td colspan="13"><?= $orderSearch === '' ? 'No buyer orders yet.' : 'No matching orders found.' ?></td>
                 </tr>
             <?php else: ?>
                 <?php foreach ($buyers as $buyer): ?>
@@ -404,6 +414,13 @@ $deletedBuyers = $deletedBuyerStmt->fetchAll();
                         <td><?= htmlspecialchars($buyer['buyer_id']) ?></td>
                         <td><?= htmlspecialchars($buyer['buyer_name']) ?></td>
                         <td><?= htmlspecialchars($buyer['item_brand']) ?> - <?= htmlspecialchars($buyer['item_type']) ?></td>
+                        <td>
+                            <?php if (!empty($buyer['image_path'])): ?>
+                                <img class="order-image" src="<?= htmlspecialchars($buyer['image_path']) ?>" alt="Image for order #<?= (int) $buyer['buyer_id'] ?>">
+                            <?php else: ?>
+                                No image
+                            <?php endif; ?>
+                        </td>
                         <td><?= htmlspecialchars($buyer['email']) ?></td>
                         <td><?= htmlspecialchars($buyer['phone']) ?></td>
                         <td><?= htmlspecialchars($buyer['shipping_address']) ?></td>

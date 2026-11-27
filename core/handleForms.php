@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/dbConfig.php';
 require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/orderImages.php';
 require_once __DIR__ . '/../model/models.php';
 requireLogin();
 $userId = currentUserId();
@@ -63,12 +64,24 @@ if (isset($_POST['placeOrderBtn'])) {
         $shipping_address !== '' &&
         $quantity !== false && $quantity > 0
     ) {
-        $success = insertBuyer($pdo, $buyer_name, $item_id, $email, $phone, $shipping_address, $quantity, $userId);
-
-        if ($success) {
-            header('Location: ../index.php?order=placed');
+        try {
+            $imagePath = storeOrderImage($_FILES['order_image'] ?? []);
+        } catch (RuntimeException $e) {
+            header('Location: ../index.php?order=image_error');
             exit();
         }
+
+        try {
+            $success = insertBuyer($pdo, $buyer_name, $item_id, $email, $phone, $shipping_address, $quantity, $userId, $imagePath);
+            if ($success) {
+                header('Location: ../index.php?order=placed');
+                exit();
+            }
+        } catch (Throwable $e) {
+            deleteOrderImage($imagePath);
+            throw $e;
+        }
+        deleteOrderImage($imagePath);
     }
 
     header('Location: ../index.php?order=error');
@@ -94,12 +107,37 @@ if (isset($_POST['editBuyerBtn'])) {
         $shipping_address !== '' &&
         $quantity !== false && $quantity > 0
     ) {
-        $success = updateBuyer($pdo, $buyer_id, $buyer_name, $item_id, $email, $phone, $shipping_address, $quantity, $userId, isOwner());
+        try {
+            $imagePath = storeOrderImage($_FILES['order_image'] ?? []);
+        } catch (RuntimeException $e) {
+            header('Location: ../index.php?order=image_error');
+            exit();
+        }
 
+        try {
+            $oldImagePath = null;
+            if ($imagePath !== null) {
+                $oldImage = $pdo->prepare('SELECT image_path FROM buyers WHERE buyer_id = :buyer_id AND deleted_at IS NULL AND (:is_owner = 1 OR added_by = :user_id)');
+                $oldImage->execute([
+                    ':buyer_id' => $buyer_id,
+                    ':is_owner' => isOwner() ? 1 : 0,
+                    ':user_id' => $userId,
+                ]);
+                $oldImagePath = $oldImage->fetchColumn() ?: null;
+            }
+            $success = updateBuyer($pdo, $buyer_id, $buyer_name, $item_id, $email, $phone, $shipping_address, $quantity, $userId, isOwner(), $imagePath);
+        } catch (Throwable $e) {
+            deleteOrderImage($imagePath);
+            throw $e;
+        }
         if ($success) {
+            if ($imagePath !== null) {
+                deleteOrderImage($oldImagePath);
+            }
             header('Location: ../index.php?order=updated');
             exit();
         }
+        deleteOrderImage($imagePath);
     }
 
     header('Location: ../index.php?order=update_error');

@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS buyers (
     phone VARCHAR(20) NOT NULL,
     shipping_address TEXT NOT NULL,
     quantity INT NOT NULL DEFAULT 1,
+    image_path VARCHAR(255) NULL,
     order_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     added_by INT NULL,
     last_updated_by INT NULL,
